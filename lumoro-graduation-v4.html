@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Lumoro Frames</title>
+
+<!--
+  ╔══════════════════════════════════════════════════════════════╗
+  ║        LUMORO FRAMES — Graduation Experience v4             ║
+  ║  All v3 bugs fixed. Production-ready. Mobile-first.         ║
+  ╠══════════════════════════════════════════════════════════════╣
+  ║  DEPLOY: Netlify Drop → app.netlify.com/drop                ║
+  ║  FILE NAME: grad-[randomslug].html  (e.g. grad-k9p2mw.html) ║
+  ║  NEVER use the customer's real name in the filename.         ║
+  ║  DELETE this file + Cloudinary photos 3 weeks after delivery ║
+  ╠══════════════════════════════════════════════════════════════╣
+  ║  v4 FIXES APPLIED:                                           ║
+  ║  [14C] Gyro parallax now uses CSS variables — no conflict    ║
+  ║         with orbit spin CSS animation                        ║
+  ║  [14D] iOS 13+ DeviceOrientationEvent.requestPermission()    ║
+  ║         added — gyro now works on iPhones                   ║
+  ║  [14B] Song list corrected — duplicate YouTube ID removed    ║
+  ║  [NEW]  Orbit pause on panel open (smoother UX)             ║
+  ║  [NEW]  Better song list (more emotional/heart-touching)     ║
+  ║  [NEW]  Improved character SVG with more detail             ║
+  ╚══════════════════════════════════════════════════════════════╝
+
+  SONG LIST (choose one, paste the youtubeId into CONFIG):
+  ──────────────────────────────────────────────────────────
+  1. Hall of Fame          — The Script ft. will.i.am  → CevxZvSJLk8
+  2. Good Riddance         — Green Day                 → CnQ8N1KaRxk
+  3. You Raise Me Up       — Josh Groban               → aJxrX43OgY0
+  4. The Climb             — Miley Cyrus               → NG2zyeVRcbs
+  5. Wind Beneath My Wings — Bette Midler              → eCLcJSNEhFE
+  6. Unwritten             — Natasha Bedingfield       → b7k9-a8CWME
+  7. I Hope You Dance      — Lee Ann Womack            → 1yozmKGKHKA
+  8. Oba Mage Dedunnata    — Rookantha Gunathilake     → (search YouTube fresh)
+
+  NOTE: Always verify YouTube IDs before saving — they rot if
+        the uploader deletes/re-uploads the video.
+-->
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Josefin+Sans:wght@300;400;600&display=swap');
+
+/* ── Reset ─────────────────────────────────────────── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  width:100%; height:100%; overflow:hidden;
+  background:#04060F;
+  color:#F0EBE0;
+  font-family:'Cormorant Garamond',Georgia,serif;
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* ── Design tokens ─────────────────────────────────── */
+:root {
+  --gold:       #C9981A;
+  --gold-bright:#E5C44A;
+  --gold-dim:   rgba(201,152,26,0.25);
+  --bg:         #04060F;
+  --text:       #F0EBE0;
+  --panel-bg:   rgba(6,10,24,0.98);
+
+  /* v4 FIX [14C]: Gyro/mouse parallax via CSS variables.
+     This prevents conflict with the #orbit-ring CSS animation. */
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+}
+
+/* ── Canvas layers ─────────────────────────────────── */
+#firefly-canvas {
+  position:fixed; inset:0;
+  width:100%; height:100%;
+  z-index:0; pointer-events:none;
+}
+#confetti-canvas {
+  position:fixed; inset:0;
+  width:100%; height:100%;
+  z-index:3; pointer-events:none;
+}
+
+/* ── Main scene ────────────────────────────────────── */
+#scene {
+  position:fixed; inset:0;
+  z-index:2;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding-bottom:52px; /* music bar clearance */
+}
+
+/* ── Name header ───────────────────────────────────── */
+#eyebrow {
+  font-family:'Josefin Sans',Arial,sans-serif;
+  font-size:clamp(0.58rem,2vw,0.75rem);
+  font-weight:300;
+  letter-spacing:0.35em;
+  text-transform:uppercase;
+  color:var(--gold);
+  opacity:0.8;
+  margin-bottom:0.35rem;
+  text-align:center;
+}
+#grad-name-top {
+  font-size:clamp(1.3rem,5vw,1.9rem);
+  font-weight:600;
+  text-align:center;
+  color:var(--text);
+  letter-spacing:0.04em;
+  line-height:1.2;
+  margin-bottom:1.1rem;
+}
+
+/* ── Orbit host — parallax wrapper ────────────────── */
+/* v4 FIX [14C]: Transform reads CSS variables set by JS.
+   JS never sets style.transform directly on this element.
+   The orbit RING's spin animation is on #orbit-ring (child),
+   so there is zero conflict. */
+#orbit-host {
+  position:relative;
+  width:min(300px,82vw);
+  height:min(300px,82vw);
+  transform-style:preserve-3d;
+  transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transition:transform 0.12s linear;
+}
+
+/* ── Orbit ring (spin animation isolated here) ─────── */
+#orbit-ring {
+  position:absolute; inset:0;
+  transform-style:preserve-3d;
+  animation: orbitSpin 20s linear infinite;
+}
+#orbit-ring.paused { animation-play-state:paused; }
+@keyframes orbitSpin {
+  from { transform:rotateY(0deg); }
+  to   { transform:rotateY(360deg); }
+}
+
+/* ── Character ─────────────────────────────────────── */
+#char-wrap {
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  animation:charFloat 4.5s ease-in-out infinite;
+  z-index:2;
+}
+@keyframes charFloat {
+  0%,100% { transform:translateY(0px); }
+  50%     { transform:translateY(-13px); }
+}
+#char-svg {
+  width:min(155px,42vw); height:auto;
+  filter: drop-shadow(0 0 22px rgba(201,152,26,0.5))
+          drop-shadow(0 8px 24px rgba(0,0,0,0.6));
+  transform-box:fill-box; /* Safari SVG animation fix */
+}
+
+/* ── Photo cards in orbit ──────────────────────────── */
+.photo-card {
+  position:absolute;
+  top:50%; left:50%;
+  width:82px; height:94px;
+  margin:-47px 0 0 -41px;
+  transform-style:preserve-3d;
+  cursor:pointer;
+  transition:filter 0.2s;
+}
+.photo-card:hover { filter:brightness(1.15); }
+.photo-inner {
+  width:100%; height:100%;
+  background:#f8f5ef;
+  border-radius:3px;
+  padding:5px 5px 22px;
+  box-shadow:
+    0 6px 22px rgba(0,0,0,0.75),
+    0 0 12px rgba(201,152,26,0.15),
+    inset 0 0 0 0.5px rgba(255,255,255,0.3);
+}
+.photo-inner img {
+  width:100%; height:60px;
+  object-fit:cover; border-radius:1px;
+  display:block;
+}
+.photo-label {
+  position:absolute; bottom:5px; left:0; right:0;
+  text-align:center;
+  font-family:'Josefin Sans',Arial,sans-serif;
+  font-size:6.5px; color:#666;
+  letter-spacing:0.06em; text-transform:uppercase;
+}
+
+/* ── Tap prompt ────────────────────────────────────── */
+#tap-prompt {
+  margin-top:1.1rem;
+  font-family:'Josefin Sans',Arial,sans-serif;
+  font-size:clamp(0.6rem,2vw,0.7rem);
+  letter-spacing:0.2em; text-transform:uppercase;
+  color:var(--gold);
+  animation:promptPulse 2.8s ease-in-out infinite;
+  cursor:pointer; text-align:center;
+  user-select:none;
+}
+@keyframes promptPulse {
+  0%,100% { opacity:0.35; }
+  50%     { opacity:0.85; }
+}
+
+/* ── Music bar ─────────────────────────────────────── */
+#music-bar {
+  position:fixed; bottom:0; left:0; right:0;
+  height:52px;
+  background:rgba(4,6,15,0.95);
+  border-top:1px solid var(--gold-dim);
+  display:flex; align-items:center;
+  padding:0 14px; gap:10px;
+  z-index:20;
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+}
+#play-btn {
+  width:34px; height:34px; border-radius:50%;
+  border:1.5px solid var(--gold);
+  background:transparent; color:var(--gold);
+  font-size:0.9rem; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; transition:background 0.2s;
+}
+#play-btn:hover { background:rgba(201,152,26,0.15); }
+#song-info { flex:1; min-width:0; }
+#song-title {
+  font-family:'Josefin Sans',Arial,sans-serif;
+  font-size:0.68rem; font-weight:600;
+  color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+#song-artist {
+  font-family:'Josefin Sans',Arial,sans-serif;
+  font-size:0.58rem; color:var(--gold); opacity:0.75;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+#waveform {
+  display:flex; align-items:center; gap:2.5px; height:22px;
+}
+.wave-bar {
+  width:3px; background:var(--gold); border-radius:2px;
+  animation:waveBounce 0.75s ease-in-out infinite;
+  opacity:0.65;
+}
+.wave-bar:nth-child(1){height:5px;  animation-delay:0s;}
+.wave-bar:nth-child(2){height:15px; animation-delay:0.12s;}
+.wave-bar:nth-child(3){height:9px;  animation-delay:0.06s;}
+.wave-bar:nth-child(4){height:19px; animation-delay:0.18s;}
+.wave-bar:nth-child(5){height:7px;  animation-delay:0.03s;}
+@keyframes waveBounce {
+  0%,100% { transform:scaleY(0.35); }
+  50%     { transform:scaleY(1); }
+}
+.wave-bar.paused { animation-play-state:paused; transform:scaleY(0.35); }
+#mute-btn {
+  background:transparent; border:none;
+  color:var(--gold); font-size:1.05rem;
+  cursor:pointer; opacity:0.7; flex-shrink:0;
+  transition:opacity 0.2s;
+}
+#mute-btn:hover { opacity:1; }
+
+/* Hidden YouTube player */
+#yt-player {
+  position:fixed; top:-5px; left:-5px;
+  width:1px; height:1px; opacity:0; pointer-events:none;
+}
+
+/* ── Message panel ─────────────────────────────────── */
+#msg-panel {
+  position:fixed;
+  bottom:-100%; left:0; right:0;
+  height:88vh;
+  background:var(--panel-bg);
+  border-radius:20px 20px 0 0;
+  border-top:1px solid var(--gold-dim);
+  z-index:30;
+  display:flex; flex-direction:column;
+  transition:bottom 0.42s cubic-bezier(0.25,0.85,0.25,1);
+  overflow:hidden;
+}
+#msg-panel.open { bottom:0; }
+
+#panel-handle {
+  width:38px; height:4px;
+  background:rgba(201,152,26,0.35);
+  border-radius:2px;
+  margin:12px auto 0; flex-shrink:0;
+}
+#panel-close {
+  position:absolute; top:10px; right:14px;
+  background:transparent; border:none;
+  color:var(--gold); font-size:1.2rem;
+  cursor:pointer; opacity:0.55; z-index:2;
+  transition:opacity 0.2s;
+}
+#panel-close:hover { opacity:1; }
+#panel-scroll {
+  flex:1; overflow-y:auto;
+  padding:0 18px 90px;
+  -webkit-overflow-scrolling:touch;
+}
+#panel-scroll::-webkit-scrollbar { width:2px; }
+#panel-scroll::-webkit-scrollbar-thumb { background:var(--gold-dim); border-radius:2px; }
+
+#panel-grad-name {
+  font-size:clamp(1.5rem,6vw,2.1rem); font-weight:600;
+  text-align:center; color:var(--text);
+  margin:10px 0 3px; line-height:1.2;
+}
+#panel-sub {
+  text-align:center;
+  font-family:'Josefin Sans',Arial,sans-serif;
+  font-size:clamp(0.58rem,1.8vw,0.68rem);
+  letter-spacing:0.12em; color:var(--gold);
+  opacity:0.8; margin-bottom:1.4rem;
+  text-transform:uppercase; line-height:1.6;
+}
+
+/* Panel photo gallery */
+#gallery-wrap {
+  border-radius:10px; overflow:hidden;
+  margin-bottom:0.9rem;
+  background:rgba(255,255,255,0.03);
+  position:relative;
+}
+#gallery-track {
+  display:flex;
+  transition:transform 0.38s cubic-bezier(0.25,0.85,0.25,1);
+}
+.gallery-slide {
+  min-width:100%; aspect-ratio:4/3; overflow:hidden;
+}
+.gallery-slide img { width:100%; height:100%; object-fit:cover; display:block; }
+#gallery-dots {
+  display:flex; justify-content:center; gap:6px;
+  margin-bottom:1.3rem;
+}
+.dot {
+  width:6px; height:6px; border-radius:50%;
+  background:rgba(201,152,26,0.28); cursor:pointer;
+  transition:background 0.3s, transform 0.3s;
+}
+.dot.active { background:var(--gold); transform:scale(1.3); }
+
+/* Message typography */
+#panel-divider {
+  width:36px; height:1px;
+  background:rgba(201,152,26,0.4);
+  margin:0 auto 1.3rem;
+}
+#panel-message {
+  font-size:clamp(1rem,3.8vw,1.2rem);
+  font-style:italic; line-height:2;
+  text-align:center; color:var(--text);
+  opacity:0.92; margin-bottom:1.4rem;
+}
+#panel-sender {
+  text-align:center;
+  font-family:'Josefin Sans',Arial,sans-serif;
+  font-size:0.68rem; letter-spacing:0.22em;
+  color:var(--gold); text-transform:uppercase;
+  margin-bottom:2rem;
+}
+#panel-sender::before { content:'— '; }
+#panel-sender::after  { content:' —'; }
+
+/* ── Intro screen ──────────────────────────────────── */
+#intro {
+  position:fixed; inset:0;
+  background:var(--bg);
+  z-index:100;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:0.8rem;
+  animation:introOut 0.7s ease 1.9s forwards;
+}
+@keyframes introOut { to { opacity:0; pointer-events:none; } }
+#intro-cap {
+  font-size:3.5rem;
+  animation:capBounce 1.8s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes capBounce {
+  0%  { transform:translateY(-40px) rotate(-12deg); opacity:0; }
+  60% { transform:translateY(0) rotate(4deg); opacity:1; }
+  80% { transform:translateY(-6px) rotate(-2deg); }
+  100%{ transform:translateY(0) rotate(0deg); }
+}
+#intro-name {
+  font-size:clamp(1.5rem,5.5vw,2rem); font-weight:600;
+  text-align:center; color:var(--text);
+  animation:introFadeUp 0.8s ease 0.5s both;
+}
+#intro-label {
+  font-family:'Josefin Sans',Arial,sans-serif;
+  font-size:0.68rem; letter-spacing:0.32em;
+  color:var(--gold); text-transform:uppercase;
+  animation:introFadeUp 0.8s ease 0.75s both;
+}
+#intro-line {
+  width:40px; height:1px;
+  background:var(--gold-dim);
+  animation:introFadeUp 0.8s ease 0.9s both;
+}
+@keyframes introFadeUp {
+  from { opacity:0; transform:translateY(14px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* ── Gold ambient glow ─────────────────────────────── */
+#ambient {
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background:radial-gradient(
+    ellipse 60% 40% at 50% 55%,
+    rgba(201,152,26,0.06) 0%,
+    transparent 70%
+  );
+}
+</style>
+</head>
+<body>
+
+<!-- ══ CONFIG — Change only this block per order ══════════════ -->
+<script>
+const CONFIG = {
+  graduateName  : "Nethmi Perera",
+  degree        : "Bachelor of Science in Computer Science",
+  university    : "University of Colombo",
+  year          : "2025",
+  senderName    : "Amma, Thaththa & Akki",
+  characterType : "girl",   // "girl" | "boy"
+  message       : "Every late night you stayed up studying, every early morning you pushed through, every moment you doubted yourself — you made it. Today, we don't just celebrate your degree. We celebrate who you are and who you are becoming. The world is waiting, and we couldn't be prouder to call you ours. This is only the beginning.",
+  photos: [
+    "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=600&q=80",
+    "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=600&q=80",
+    "https://images.unsplash.com/photo-1627556592933-ffe99c1cd9eb?w=600&q=80",
+    "https://images.unsplash.com/photo-1607013251379-e6eecfffe234?w=600&q=80"
+  ],
+  // Replace with real Cloudinary URLs, e.g.:
+  // "https://res.cloudinary.com/YOUR_CLOUD/image/upload/v.../photo1.jpg"
+  songTitle     : "Hall of Fame",
+  songArtist    : "The Script ft. will.i.am",
+  youtubeId     : "CevxZvSJLk8"
+};
+</script>
+<!-- ══════════════════════════════════════════════════════════ -->
+
+<!-- Intro -->
+<div id="intro">
+  <div id="intro-cap">🎓</div>
+  <div id="intro-name"></div>
+  <div id="intro-line"></div>
+  <div id="intro-label">Congratulations, Graduate</div>
+</div>
+
+<!-- Ambient glow -->
+<div id="ambient"></div>
+
+<!-- Canvas layers -->
+<canvas id="firefly-canvas"></canvas>
+<canvas id="confetti-canvas"></canvas>
+
+<!-- Main scene -->
+<div id="scene">
+  <div id="eyebrow">Congratulations</div>
+  <div id="grad-name-top"></div>
+
+  <!-- Orbit host: parallax wrapper (transform driven by CSS vars) -->
+  <div id="orbit-host">
+    <!-- Photo orbit ring (spin animation here — isolated from parallax) -->
+    <div id="orbit-ring"></div>
+
+    <!-- Character (floats independently) -->
+    <div id="char-wrap" onclick="openPanel()">
+      <svg id="char-svg" viewBox="0 0 200 270" xmlns="http://www.w3.org/2000/svg">
+        <!-- Filled by JS -->
+      </svg>
+    </div>
+  </div>
+
+  <div id="tap-prompt">✦ tap to open your message ✦</div>
+</div>
+
+<!-- Music bar -->
+<div id="music-bar">
+  <button id="play-btn" onclick="togglePlay()">▶</button>
+  <div id="song-info">
+    <div id="song-title"></div>
+    <div id="song-artist"></div>
+  </div>
+  <div id="waveform">
+    <div class="wave-bar paused"></div>
+    <div class="wave-bar paused"></div>
+    <div class="wave-bar paused"></div>
+    <div class="wave-bar paused"></div>
+    <div class="wave-bar paused"></div>
+  </div>
+  <button id="mute-btn" onclick="toggleMute()">🔊</button>
+</div>
+
+<!-- Hidden YouTube -->
+<div id="yt-player"></div>
+
+<!-- Message panel -->
+<div id="msg-panel">
+  <div id="panel-handle"></div>
+  <button id="panel-close" onclick="closePanel()">✕</button>
+  <div id="panel-scroll">
+    <div id="panel-grad-name"></div>
+    <div id="panel-sub"></div>
+    <div id="gallery-wrap">
+      <div id="gallery-track"></div>
+    </div>
+    <div id="gallery-dots"></div>
+    <div id="panel-divider"></div>
+    <div id="panel-message"></div>
+    <div id="panel-sender"></div>
+  </div>
+</div>
+
+<script>
+// ══ 1. POPULATE FROM CONFIG ════════════════════════════════════
+document.getElementById('intro-name').textContent   = CONFIG.graduateName;
+document.getElementById('grad-name-top').textContent = CONFIG.graduateName;
+document.getElementById('panel-grad-name').textContent = CONFIG.graduateName;
+document.getElementById('panel-sub').innerHTML =
+  CONFIG.degree + '<br>' + CONFIG.university + ' · ' + CONFIG.year;
+document.getElementById('panel-message').textContent = CONFIG.message;
+document.getElementById('panel-sender').textContent  = CONFIG.senderName;
+document.getElementById('song-title').textContent    = CONFIG.songTitle;
+document.getElementById('song-artist').textContent   = CONFIG.songArtist;
+
+// ══ 2. CHARACTER SVG ══════════════════════════════════════════
+const charSVG = document.getElementById('char-svg');
+const isGirl  = CONFIG.characterType !== 'boy';
+const skinTone = isGirl ? '#D4956A' : '#C08858';
+const hairFill = '#1C0F05';
+
+charSVG.innerHTML = `
+  <!-- Gown -->
+  <path d="M52 270 Q52 190 72 180 L100 192 L128 180 Q148 190 148 270 Z" fill="#1a2340"/>
+  <!-- Collar accent -->
+  <polygon points="100,176 82,210 118,210" fill="${isGirl ? '#C9981A' : '#8090B0'}" opacity="0.85"/>
+  <!-- Arms -->
+  <ellipse cx="55" cy="210" rx="16" ry="9" fill="#1a2340" transform="rotate(-25 55 210)"/>
+  <ellipse cx="145" cy="210" rx="16" ry="9" fill="#1a2340" transform="rotate(25 145 210)"/>
+  <!-- Diploma scroll -->
+  <rect x="128" y="200" width="26" height="16" rx="3" fill="#F0EBE0" opacity="0.95"/>
+  <line x1="128" y1="208" x2="154" y2="208" stroke="#C9981A" stroke-width="1.5"/>
+  <line x1="130" y1="212" x2="152" y2="212" stroke="#C9981A" stroke-width="0.8" opacity="0.6"/>
+  <!-- Neck -->
+  <rect x="88" y="155" width="24" height="20" rx="7" fill="${skinTone}"/>
+  <!-- Head -->
+  <ellipse cx="100" cy="140" rx="42" ry="44" fill="${skinTone}"/>
+  <!-- Hair back -->
+  <ellipse cx="100" cy="106" rx="40" ry="20" fill="${hairFill}"/>
+  ${isGirl ? `
+  <!-- Girl long hair sides -->
+  <path d="M60 120 Q56 160 62 175" stroke="${hairFill}" stroke-width="22" fill="none" stroke-linecap="round"/>
+  <path d="M140 120 Q144 160 138 175" stroke="${hairFill}" stroke-width="22" fill="none" stroke-linecap="round"/>
+  <!-- Hair top -->
+  <ellipse cx="78" cy="110" rx="24" ry="14" fill="${hairFill}"/>
+  <ellipse cx="122" cy="110" rx="24" ry="14" fill="${hairFill}"/>
+  ` : `
+  <!-- Boy short sides -->
+  <rect x="60" y="110" width="18" height="28" rx="5" fill="${hairFill}"/>
+  <rect x="122" y="110" width="18" height="28" rx="5" fill="${hairFill}"/>
+  `}
+  <!-- Blush -->
+  <ellipse cx="72" cy="150" rx="10" ry="6" fill="#e87070" opacity="${isGirl ? 0.32 : 0.2}"/>
+  <ellipse cx="128" cy="150" rx="10" ry="6" fill="#e87070" opacity="${isGirl ? 0.32 : 0.2}"/>
+  <!-- Eye whites -->
+  <ellipse cx="84"  cy="138" rx="9.5" ry="11" fill="#fff"/>
+  <ellipse cx="116" cy="138" rx="9.5" ry="11" fill="#fff"/>
+  <!-- Iris -->
+  <ellipse id="iris-l" cx="85"  cy="139" rx="6"   ry="8.5" fill="${isGirl ? '#3D2B1F' : '#2B3F5F'}"/>
+  <ellipse id="iris-r" cx="117" cy="139" rx="6"   ry="8.5" fill="${isGirl ? '#3D2B1F' : '#2B3F5F'}"/>
+  <!-- Pupils -->
+  <ellipse cx="86"  cy="140" rx="3.5" ry="5" fill="#0a0604"/>
+  <ellipse cx="118" cy="140" rx="3.5" ry="5" fill="#0a0604"/>
+  <!-- Eye shine -->
+  <circle cx="89"  cy="135" r="2.2" fill="#fff"/>
+  <circle cx="121" cy="135" r="2.2" fill="#fff"/>
+  <!-- Blink overlays (animated by JS) -->
+  <rect id="blink-l" x="74.5" y="133" width="19" height="0" rx="3" fill="${skinTone}"/>
+  <rect id="blink-r" x="106.5" y="133" width="19" height="0" rx="3" fill="${skinTone}"/>
+  <!-- Eyebrows -->
+  <path d="M77 126 Q84 121 93 124.5" stroke="${hairFill}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M107 124.5 Q116 121 123 126" stroke="${hairFill}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  ${isGirl ? '<!-- Eyelashes --><path d="M74.5 133 Q72 128 75 126" stroke="#1C0F05" stroke-width="1.5" fill="none"/><path d="M93.5 133 Q96 128 93 126" stroke="#1C0F05" stroke-width="1.5" fill="none"/><path d="M106.5 133 Q104 128 107 126" stroke="#1C0F05" stroke-width="1.5" fill="none"/><path d="M125.5 133 Q128 128 125 126" stroke="#1C0F05" stroke-width="1.5" fill="none"/>' : ''}
+  <!-- Smile -->
+  <path d="M88 160 Q100 170 112 160" stroke="${isGirl ? '#C06858' : '#8A5540'}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  ${isGirl ? '<circle cx="88" cy="160" r="2.5" fill="#D07060" opacity="0.4"/><circle cx="112" cy="160" r="2.5" fill="#D07060" opacity="0.4"/>' : ''}
+  <!-- Mortarboard brim -->
+  <ellipse cx="100" cy="102" rx="43" ry="9" fill="#0a0e1a"/>
+  <!-- Mortarboard cap -->
+  <rect x="66" y="86" width="68" height="15" rx="3" fill="#0a0e1a"/>
+  <!-- Center button -->
+  <circle cx="100" cy="86" r="7" fill="#C9981A"/>
+  <circle cx="100" cy="86" r="4" fill="#E5C44A"/>
+  <!-- Tassel cord -->
+  <line id="tassel-cord" x1="134" y1="87" x2="144" y2="115" stroke="#C9981A" stroke-width="2.2"/>
+  <!-- Tassel ball -->
+  <circle id="tassel-ball" cx="144" cy="117" r="5.5" fill="#C9981A"/>
+  <!-- Tassel strands -->
+  <g id="tassel-strands">
+    <line x1="144" y1="122" x2="140" y2="138" stroke="#C9981A" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="144" y1="122" x2="144" y2="139" stroke="#C9981A" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="144" y1="122" x2="148" y2="138" stroke="#C9981A" stroke-width="1.8" stroke-linecap="round"/>
+  </g>
+  <!-- Sparkle decorations -->
+  <g id="sparkle-a"><text x="152" y="96" font-size="11" fill="#E5C44A">✦</text></g>
+  <g id="sparkle-b"><text x="36" y="118" font-size="9"  fill="#E5C44A">✦</text></g>
+  <g id="sparkle-c"><text x="158" y="155" font-size="8" fill="#E5C44A">✦</text></g>
+  <g id="sparkle-d"><text x="28" y="170" font-size="7"  fill="#C9981A">✦</text></g>
+`;
+
+// ══ 3. CHARACTER ANIMATIONS ════════════════════════════════════
+
+// Blink loop
+function doBlink() {
+  const bl = document.getElementById('blink-l');
+  const br = document.getElementById('blink-r');
+  if (!bl) return;
+  [bl, br].forEach(el => {
+    el.setAttribute('height', '12');
+    setTimeout(() => el.setAttribute('height', '0'), 120);
+  });
+  setTimeout(doBlink, 2800 + Math.random() * 2200);
+}
+setTimeout(doBlink, 1600);
+
+// Tassel sway
+(function swayTassel() {
+  let t = 0;
+  const cord  = document.getElementById('tassel-cord');
+  const ball  = document.getElementById('tassel-ball');
+  const strands = document.getElementById('tassel-strands');
+  if (!cord) return;
+  setInterval(() => {
+    t += 0.04;
+    const ox = Math.sin(t) * 9;
+    cord.setAttribute('x2', 144 + ox);
+    cord.setAttribute('y2', 115 + Math.abs(Math.sin(t)) * 2);
+    ball.setAttribute('cx', 144 + ox);
+    if (strands) strands.setAttribute('transform', `translate(${ox},0)`);
+  }, 40);
+})();
+
+// Sparkle pulse
+(function pulseSparkles() {
+  let t = 0;
+  const ids = ['sparkle-a','sparkle-b','sparkle-c','sparkle-d'];
+  setInterval(() => {
+    t += 0.06;
+    ids.forEach((id, i) => {
+      const el = document.getElementById(id);
+      if (el) el.style.opacity = (0.4 + 0.55 * Math.sin(t + i * 0.8)).toFixed(2);
+    });
+  }, 48);
+})();
+
+// ══ 4. ORBIT PHOTO RING ════════════════════════════════════════
+(function buildOrbit() {
+  const ring   = document.getElementById('orbit-ring');
+  const photos = CONFIG.photos;
+  const R = Math.min(window.innerWidth, 380) * 0.37;
+
+  photos.forEach((url, i) => {
+    const angle = (360 / photos.length) * i;
+    const card = document.createElement('div');
+    card.className = 'photo-card';
+    card.style.transform = `rotateY(${angle}deg) translateZ(${R}px)`;
+    card.innerHTML = `
+      <div class="photo-inner">
+        <img src="${url}" alt="memory ${i+1}" loading="lazy"/>
+        <div class="photo-label">memory ${i+1}</div>
+      </div>`;
+    card.addEventListener('click', e => { e.stopPropagation(); openPanel(i); });
+    ring.appendChild(card);
+  });
+})();
+
+// ══ 5. PANEL GALLERY ═══════════════════════════════════════════
+(function buildGallery() {
+  const track    = document.getElementById('gallery-track');
+  const dotsWrap = document.getElementById('gallery-dots');
+  let current = 0, timer = null;
+
+  CONFIG.photos.forEach((url, i) => {
+    const slide = document.createElement('div');
+    slide.className = 'gallery-slide';
+    slide.innerHTML = `<img src="${url}" alt="photo ${i+1}" loading="lazy"/>`;
+    track.appendChild(slide);
+
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 0 ? ' active' : '');
+    dot.addEventListener('click', () => goTo(i));
+    dotsWrap.appendChild(dot);
+  });
+
+  window._gallery = {
+    goTo(n) {
+      current = (n + CONFIG.photos.length) % CONFIG.photos.length;
+      track.style.transform = `translateX(-${current * 100}%)`;
+      document.querySelectorAll('.dot').forEach((d, i) =>
+        d.classList.toggle('active', i === current));
+    },
+    start() {
+      timer = setInterval(() => this.goTo(current + 1), 3400);
+    },
+    stop() { clearInterval(timer); }
+  };
+
+  // Swipe support
+  let sx = 0;
+  track.addEventListener('touchstart', e => { sx = e.touches[0].clientX; window._gallery.stop(); }, {passive:true});
+  track.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - sx;
+    if (Math.abs(dx) > 38) window._gallery.goTo(current + (dx < 0 ? 1 : -1));
+    window._gallery.start();
+  }, {passive:true});
+})();
+
+// ══ 6. PANEL OPEN / CLOSE ══════════════════════════════════════
+const msgPanel = document.getElementById('msg-panel');
+const orbitRing = document.getElementById('orbit-ring');
+
+function openPanel(photoIdx = 0) {
+  msgPanel.classList.add('open');
+  window._gallery.goTo(photoIdx);
+  window._gallery.start();
+  orbitRing.classList.add('paused'); // Pause orbit while panel is open
+}
+function closePanel() {
+  msgPanel.classList.remove('open');
+  window._gallery.stop();
+  orbitRing.classList.remove('paused');
+}
+
+document.getElementById('tap-prompt').addEventListener('click', () => openPanel());
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+
+// ══ 7. FIREFLY PARTICLE SYSTEM ═════════════════════════════════
+(function initFireflies() {
+  const canvas = document.getElementById('firefly-canvas');
+  const ctx    = canvas.getContext('2d');
+  const COUNT  = 65;
+  const flies  = [];
+
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  for (let i = 0; i < COUNT; i++) {
+    flies.push({
+      x:    Math.random() * canvas.width,
+      y:    Math.random() * canvas.height,
+      size: 0.8 + Math.random() * 2.2,
+      vy:   0.18 + Math.random() * 0.45,
+      vx:   (Math.random() - 0.5) * 0.28,
+      op:   Math.random(),
+      opd:  (Math.random() > 0.5 ? 1 : -1) * 0.007,
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    flies.forEach(f => {
+      f.y -= f.vy;
+      f.x += f.vx;
+      f.op = Math.max(0.04, Math.min(1, f.op + f.opd));
+      if (f.op >= 1 || f.op <= 0.04) f.opd *= -1;
+      if (f.y < -8) { f.y = canvas.height + 8; f.x = Math.random() * canvas.width; }
+      if (f.x < -8 || f.x > canvas.width + 8) f.vx *= -1;
+
+      ctx.save();
+      ctx.globalAlpha = f.op;
+      const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.size * 5);
+      g.addColorStop(0,   '#E5C44A');
+      g.addColorStop(0.4, 'rgba(201,152,26,0.6)');
+      g.addColorStop(1,   'rgba(201,152,26,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, f.size * 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ══ 8. CONFETTI BURST ══════════════════════════════════════════
+(function initConfetti() {
+  const canvas = document.getElementById('confetti-canvas');
+  const ctx    = canvas.getContext('2d');
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const COLORS  = ['#C9981A','#E5C44A','#F0EBE0','#7EB0D4','#A8D8A0','#E8B4B8'];
+  let pieces = [];
+
+  function launch() {
+    for (let i = 0; i < 140; i++) {
+      pieces.push({
+        x:  Math.random() * canvas.width,
+        y:  -10 - Math.random() * 40,
+        w:  3 + Math.random() * 6,
+        h:  6 + Math.random() * 9,
+        r:  Math.random() * Math.PI * 2,
+        rs: (Math.random() - 0.5) * 0.18,
+        vy: 1.8 + Math.random() * 3.2,
+        vx: (Math.random() - 0.5) * 1.8,
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        alpha: 1,
+      });
+    }
+
+    function animate() {
+      if (!pieces.length) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let alive = false;
+      pieces.forEach(p => {
+        p.y += p.vy; p.x += p.vx; p.r += p.rs;
+        if (p.y > canvas.height - 20) p.alpha -= 0.018;
+        if (p.alpha > 0) alive = true;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.r);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+        ctx.restore();
+      });
+      if (alive) requestAnimationFrame(animate);
+      else { pieces = []; ctx.clearRect(0,0,canvas.width,canvas.height); }
+    }
+    animate();
+  }
+
+  // Fire confetti after intro finishes
+  setTimeout(launch, 2200);
+})();
+
+// ══ 9. PARALLAX — v4 FIX [14C] + [14D] ════════════════════════
+// Fix [14C]: applyTilt updates CSS variables on #orbit-host.
+//   The CSS rule `transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y))`
+//   is applied in the stylesheet. JS never touches style.transform directly,
+//   so there is zero conflict with the #orbit-ring CSS spin animation.
+//
+// Fix [14D]: On iOS 13+, DeviceOrientationEvent requires explicit permission
+//   from a user gesture. We attach the permission request to the first tap.
+
+const orbitHost = document.getElementById('orbit-host');
+
+function applyTilt(cx, cy) {
+  // cx, cy in range [-1, 1]
+  const tx = Math.max(-14, Math.min(14, cy * 0.4)).toFixed(2);
+  const ty = Math.max(-14, Math.min(14, cx * 0.4)).toFixed(2);
+  orbitHost.style.setProperty('--tilt-x', tx + 'deg');
+  orbitHost.style.setProperty('--tilt-y', ty + 'deg');
+}
+
+function attachGyroscope() {
+  window.addEventListener('deviceorientation', e => {
+    if (e.beta === null || e.gamma === null) return;
+    const cx = Math.max(-1, Math.min(1, e.gamma / 30));
+    const cy = Math.max(-1, Math.min(1, (e.beta - 45) / 30));
+    applyTilt(cx, cy);
+  });
+}
+
+// Desktop mouse
+document.addEventListener('mousemove', e => {
+  applyTilt(
+    (e.clientX / window.innerWidth  - 0.5) * 2,
+    (e.clientY / window.innerHeight - 0.5) * 2
+  );
+});
+
+// Mobile gyroscope
+if (typeof DeviceOrientationEvent !== 'undefined') {
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // iOS 13+: must be triggered by a user gesture
+    document.body.addEventListener('click', function iosGyro() {
+      DeviceOrientationEvent.requestPermission()
+        .then(state => { if (state === 'granted') attachGyroscope(); })
+        .catch(() => {});
+      document.body.removeEventListener('click', iosGyro);
+    }, { once: true });
+  } else {
+    // Android + older iOS: attach directly
+    attachGyroscope();
+  }
+}
+
+// ══ 10. YOUTUBE IFRAME API ════════════════════════════════════
+// Music plays inside the page — recipient never leaves to YouTube.
+let ytPlayer    = null;
+let isPlaying   = false;
+let isMuted     = false;
+
+window.onYouTubeIframeAPIReady = function() {
+  ytPlayer = new YT.Player('yt-player', {
+    videoId    : CONFIG.youtubeId,
+    playerVars : {
+      autoplay: 1, loop: 1, playlist: CONFIG.youtubeId,
+      controls: 0, disablekb: 1, rel: 0, modestbranding: 1,
+      playsinline: 1, // Important for iOS autoplay
+    },
+    events: {
+      onReady: e => {
+        e.target.setVolume(70);
+        e.target.playVideo();
+      },
+      onStateChange: e => {
+        isPlaying = (e.data === YT.PlayerState.PLAYING);
+        document.getElementById('play-btn').textContent = isPlaying ? '⏸' : '▶';
+        document.querySelectorAll('.wave-bar').forEach(b =>
+          b.classList.toggle('paused', !isPlaying));
+      }
+    }
+  });
+};
+
+function togglePlay() {
+  if (!ytPlayer) return;
+  isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+}
+function toggleMute() {
+  if (!ytPlayer) return;
+  isMuted = !isMuted;
+  isMuted ? ytPlayer.mute() : ytPlayer.unMute();
+  document.getElementById('mute-btn').textContent = isMuted ? '🔇' : '🔊';
+}
+
+// Load YouTube API
+(function() {
+  const s = document.createElement('script');
+  s.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(s);
+})();
+
+// ══ 11. INTRO CLEANUP ══════════════════════════════════════════
+setTimeout(() => {
+  const intro = document.getElementById('intro');
+  if (intro) intro.remove();
+}, 2800);
+</script>
+</body>
+</html>
